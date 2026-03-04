@@ -2,6 +2,7 @@ package com.litongjava.voice.agent.bridge;
 
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -21,12 +22,12 @@ import com.litongjava.voice.agent.model.WsVoiceAgentResponseMessage;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class QwenOmniRealtimeBridge {
+public class QwenOmniRealtimeBridge implements RealtimeModelBridge {
 
   // 中国区（北京）
-  private static final String DEFAULT_URL = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
-  private static final String DEFAULT_MODEL = "qwen3-omni-flash-realtime";
-  private static final String DEFAULT_VOICE = "Cherry";
+  private String url = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
+  private String model = "qwen3-omni-flash-realtime";
+  private String voiceName = "Cherry";
 
   private final RealtimeBridgeCallback callback;
 
@@ -39,6 +40,20 @@ public class QwenOmniRealtimeBridge {
     this.callback = callback;
   }
 
+  public QwenOmniRealtimeBridge(RealtimeBridgeCallback callback, String url, String model, String voiceName) {
+    this.callback = callback;
+    if (url != null) {
+      this.url = url;
+    }
+    if (model != null) {
+      this.model = model;
+    }
+
+    if (voiceName != null) {
+      this.voiceName = voiceName;
+    }
+  }
+
   public CompletableFuture<Void> connect(RealtimeSetup setup) {
     return CompletableFuture.runAsync(() -> {
       try {
@@ -47,17 +62,13 @@ public class QwenOmniRealtimeBridge {
           throw new IllegalStateException("DASHSCOPE_API_KEY is empty");
         }
 
-        OmniRealtimeParam param = OmniRealtimeParam.builder()
-            .model(DEFAULT_MODEL)
-            .apikey(apiKey)
-            .url(DEFAULT_URL)
-            .build();
+        OmniRealtimeParam param = OmniRealtimeParam.builder().model(model).apikey(apiKey).url(url).build();
 
         this.conversation = new OmniRealtimeConversation(param, new OmniRealtimeCallback() {
           @Override
           public void onOpen() {
             connected.set(true);
-            sendJson(new WsVoiceAgentResponseMessage("qwen_connected", DEFAULT_MODEL));
+            sendJson(new WsVoiceAgentResponseMessage("qwen_connected", model));
           }
 
           @Override
@@ -135,7 +146,8 @@ public class QwenOmniRealtimeBridge {
   public CompletableFuture<Void> commitAndCreateResponse() {
     return CompletableFuture.runAsync(() -> {
       OmniRealtimeConversation c = this.conversation;
-      if (c == null || !connected.get()) return;
+      if (c == null || !connected.get())
+        return;
       try {
         c.commit();
         c.createResponse(null, null);
@@ -164,25 +176,35 @@ public class QwenOmniRealtimeBridge {
     // manual（按下即说）：enableTurnDetection(false)，并在 audio_end 时 commit+createResponse
     boolean useServerVad = true;
 
+    List<OmniRealtimeModality> modalities = Arrays.asList(OmniRealtimeModality.AUDIO, OmniRealtimeModality.TEXT);
     OmniRealtimeConfig.OmniRealtimeConfigBuilder b = OmniRealtimeConfig.builder()
-        .modalities(Arrays.asList(OmniRealtimeModality.AUDIO, OmniRealtimeModality.TEXT))
-        .voice(DEFAULT_VOICE)
+        //
+        .modalities(modalities).voice(voiceName)
+        //
         .enableInputAudioTranscription(true)
+        //
         .enableTurnDetection(useServerVad)
+        //
         .parameters(Map.of("instructions", instructions));
 
     return b.build();
   }
 
   private String buildInstructions(RealtimeSetup setup) {
-    if (setup == null) return "你是一个专业、简洁的语音助手。";
+    if (setup == null)
+      return "你是一个专业、简洁的语音助手。";
 
     StringBuilder sb = new StringBuilder();
-    if (StrUtil.notBlank(setup.getSystem_prompt())) sb.append(setup.getSystem_prompt()).append("\n");
-    if (StrUtil.notBlank(setup.getJob_description())) sb.append(setup.getJob_description()).append("\n");
-    if (StrUtil.notBlank(setup.getResume())) sb.append(setup.getResume()).append("\n");
-    if (StrUtil.notBlank(setup.getGreeting())) sb.append(setup.getGreeting()).append("\n");
-    if (StrUtil.notBlank(setup.getQuestions())) sb.append(setup.getQuestions()).append("\n");
+    if (StrUtil.notBlank(setup.getSystem_prompt()))
+      sb.append(setup.getSystem_prompt()).append("\n");
+    if (StrUtil.notBlank(setup.getJob_description()))
+      sb.append(setup.getJob_description()).append("\n");
+    if (StrUtil.notBlank(setup.getResume()))
+      sb.append(setup.getResume()).append("\n");
+    if (StrUtil.notBlank(setup.getGreeting()))
+      sb.append(setup.getGreeting()).append("\n");
+    if (StrUtil.notBlank(setup.getQuestions()))
+      sb.append(setup.getQuestions()).append("\n");
     return sb.length() == 0 ? "你是一个专业、简洁的语音助手。" : sb.toString();
   }
 
@@ -192,70 +214,70 @@ public class QwenOmniRealtimeBridge {
 
       switch (type) {
 
-        // 会话创建/更新
-        case "session.created":
-          sendJson(new WsVoiceAgentResponseMessage("setup_complete"));
-          break;
-        case "session.updated":
-          // 可选：记录配置
-          break;
+      // 会话创建/更新
+      case "session.created":
+        sendJson(new WsVoiceAgentResponseMessage("setup_complete"));
+        break;
+      case "session.updated":
+        // 可选：记录配置
+        break;
 
-        // 服务端 VAD 生命周期（可用于前端“打断播放”）
-        case "input_audio_buffer.speech_started":
-          sendJson(new WsVoiceAgentResponseMessage("speech_started"));
-          break;
-        case "input_audio_buffer.speech_stopped":
-          sendJson(new WsVoiceAgentResponseMessage("speech_stopped"));
-          break;
+      // 服务端 VAD 生命周期（可用于前端“打断播放”）
+      case "input_audio_buffer.speech_started":
+        sendJson(new WsVoiceAgentResponseMessage("speech_started"));
+        break;
+      case "input_audio_buffer.speech_stopped":
+        sendJson(new WsVoiceAgentResponseMessage("speech_stopped"));
+        break;
 
-        // 用户输入转写完成
-        case "conversation.item.input_audio_transcription.completed": {
-          String transcript = event.has("transcript") ? event.get("transcript").getAsString() : "";
-          sendJson(new WsVoiceAgentResponseMessage("transcript_in", transcript));
-          break;
+      // 用户输入转写完成
+      case "conversation.item.input_audio_transcription.completed": {
+        String transcript = event.has("transcript") ? event.get("transcript").getAsString() : "";
+        sendJson(new WsVoiceAgentResponseMessage("transcript_in", transcript));
+        break;
+      }
+
+      // 模型输出字幕（增量/完成）
+      case "response.audio_transcript.delta": {
+        String delta = event.has("delta") ? event.get("delta").getAsString() : "";
+        sendJson(new WsVoiceAgentResponseMessage("transcript_out", delta));
+        break;
+      }
+      case "response.audio_transcript.done": {
+        String transcript = event.has("transcript") ? event.get("transcript").getAsString() : "";
+        // 你也可以用 text 事件发完整句
+        sendJson(new WsVoiceAgentResponseMessage("text", transcript));
+        break;
+      }
+
+      // 模型输出音频（base64）
+      case "response.audio.delta": {
+        String b64 = event.has("delta") ? event.get("delta").getAsString() : "";
+        if (StrUtil.notBlank(b64)) {
+          byte[] pcm = Base64.getDecoder().decode(b64);
+          callback.sendBinary(pcm);
         }
+        break;
+      }
+      case "response.audio.done":
+        // 音频段结束（可选）
+        break;
 
-        // 模型输出字幕（增量/完成）
-        case "response.audio_transcript.delta": {
-          String delta = event.has("delta") ? event.get("delta").getAsString() : "";
-          sendJson(new WsVoiceAgentResponseMessage("transcript_out", delta));
-          break;
-        }
-        case "response.audio_transcript.done": {
-          String transcript = event.has("transcript") ? event.get("transcript").getAsString() : "";
-          // 你也可以用 text 事件发完整句
-          sendJson(new WsVoiceAgentResponseMessage("text", transcript));
-          break;
-        }
+      // 一轮完成
+      case "response.done":
+        sendJson(new WsVoiceAgentResponseMessage("turn_complete"));
+        break;
 
-        // 模型输出音频（base64）
-        case "response.audio.delta": {
-          String b64 = event.has("delta") ? event.get("delta").getAsString() : "";
-          if (StrUtil.notBlank(b64)) {
-            byte[] pcm = Base64.getDecoder().decode(b64);
-            callback.sendBinary(pcm);
-          }
-          break;
-        }
-        case "response.audio.done":
-          // 音频段结束（可选）
-          break;
+      // 错误
+      case "error":
+        // 不同版本字段可能是 error/message
+        sendError("remote_error", event.toString());
+        break;
 
-        // 一轮完成
-        case "response.done":
-          sendJson(new WsVoiceAgentResponseMessage("turn_complete"));
-          break;
-
-        // 错误
-        case "error":
-          // 不同版本字段可能是 error/message
-          sendError("remote_error", event.toString());
-          break;
-
-        default:
-          // 需要排查时打开
-          // sendJson(new WsVoiceAgentResponseMessage("evt", event.toString()));
-          break;
+      default:
+        // 需要排查时打开
+        // sendJson(new WsVoiceAgentResponseMessage("evt", event.toString()));
+        break;
       }
     } catch (Exception e) {
       log.error("handleEvent error", e);
@@ -277,5 +299,10 @@ public class QwenOmniRealtimeBridge {
     m.setWhere(where);
     m.setMessage(message == null ? "" : message);
     sendJson(m);
+  }
+
+  @Override
+  public CompletableFuture<Void> endAudioInput() {
+    return CompletableFuture.completedFuture(null);
   }
 }

@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WsVoiceAgentRequestMessage {
+  private String platform;
   private String type; // 消息类型：setup | text | audio_end | close | ...
   private String text; // 当 type == "text" 时的文本
   private String system_prompt; // 当 type == "setup" 时的系统提示

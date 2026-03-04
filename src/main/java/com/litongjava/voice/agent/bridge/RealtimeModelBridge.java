@@ -8,6 +8,8 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface RealtimeModelBridge {
 
+  //public RealtimeModelBridge(RealtimeBridgeCallback sender,String url,String model,String voiceName)
+
   /**
    * 建立到模型的会话连接，并完成必要的 session/setup 配置。
    */
@@ -35,11 +37,4 @@ public interface RealtimeModelBridge {
    * 关闭会话并释放资源。
    */
   CompletableFuture<Void> close();
-
-  /**
-   * 当前实现的标识，便于日志/调试。
-   */
-  default String name() {
-    return getClass().getSimpleName();
-  }
 }

@@ -1,9 +1,9 @@
 package com.litongjava.voice.agent.handler;
 
-
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.litongjava.consts.ModelPlatformName;
 import com.litongjava.tio.core.ChannelContext;
 import com.litongjava.tio.core.Tio;
 import com.litongjava.tio.http.common.HttpRequest;
@@ -15,7 +15,9 @@ import com.litongjava.tio.websocket.common.WebSocketSessionContext;
 import com.litongjava.tio.websocket.server.handler.IWebSocketHandler;
 import com.litongjava.voice.agent.audio.SessionAudioRecorder;
 import com.litongjava.voice.agent.bridge.GoogleGeminiRealtimeBridge;
+import com.litongjava.voice.agent.bridge.QwenOmniRealtimeBridge;
 import com.litongjava.voice.agent.bridge.RealtimeBridgeCallback;
+import com.litongjava.voice.agent.bridge.RealtimeModelBridge;
 import com.litongjava.voice.agent.bridge.RealtimeSetup;
 import com.litongjava.voice.agent.callback.WsRealtimeBridgeCallback;
 import com.litongjava.voice.agent.consts.VoiceAgentConst;
@@ -29,7 +31,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class VoiceSocketHandler implements IWebSocketHandler {
   // 一个前端连接一个 bridge
-  private static final Map<String, GoogleGeminiRealtimeBridge> BRIDGES = new ConcurrentHashMap<>();
+  private static final Map<String, RealtimeModelBridge> BRIDGES = new ConcurrentHashMap<>();
 
   @Override
   public HttpResponse handshake(HttpRequest httpRequest, HttpResponse response, ChannelContext channelContext)
@@ -47,7 +49,7 @@ public class VoiceSocketHandler implements IWebSocketHandler {
   @Override
   public Object onClose(WebSocketRequest wsRequest, byte[] bytes, ChannelContext channelContext) throws Exception {
     String k = ChannelContextUtils.key(channelContext);
-    GoogleGeminiRealtimeBridge bridge = BRIDGES.remove(k);
+    RealtimeModelBridge bridge = BRIDGES.remove(k);
     if (bridge != null) {
       bridge.close();
     }
@@ -65,7 +67,7 @@ public class VoiceSocketHandler implements IWebSocketHandler {
       log.warn("appendUserPcm failed: {}", ex.getMessage());
     }
 
-    GoogleGeminiRealtimeBridge bridge = BRIDGES.get(ChannelContextUtils.key(channelContext));
+    RealtimeModelBridge bridge = BRIDGES.get(ChannelContextUtils.key(channelContext));
     if (bridge != null) {
       bridge.sendPcm16k(bytes);
     }
@@ -92,7 +94,7 @@ public class VoiceSocketHandler implements IWebSocketHandler {
       log.error("解析收到的消息异常", e);
       return null;
     }
-    GoogleGeminiRealtimeBridge bridge = BRIDGES.get(ChannelContextUtils.key(channelContext));
+    RealtimeModelBridge bridge = BRIDGES.get(ChannelContextUtils.key(channelContext));
 
     if (bridge == null && msg != null && msg.getType() != null) {
       String typeStr = msg.getType().trim().toUpperCase();
@@ -105,6 +107,7 @@ public class VoiceSocketHandler implements IWebSocketHandler {
       }
       switch (typeEnum) {
       case SETUP:
+        String platform = msg.getPlatform();
         String systemPrompt = msg.getSystem_prompt();
         String user_prompt = msg.getUser_prompt();
         String job_description = msg.getJob_description();
@@ -115,7 +118,7 @@ public class VoiceSocketHandler implements IWebSocketHandler {
         RealtimeSetup realtimeSetup = new RealtimeSetup(systemPrompt, user_prompt, job_description, resume, questions,
             greeting);
 
-        connectLLM(channelContext, realtimeSetup);
+        connectLLM(channelContext, platform, realtimeSetup);
         // 回显确认
         String json = toJson(new WsVoiceAgentResponseMessage(WsVoiceAgentType.SETUP_RECEIVED.name()));
         Tio.send(channelContext, WebSocketResponse.fromText(json, VoiceAgentConst.CHARSET));
@@ -146,7 +149,7 @@ public class VoiceSocketHandler implements IWebSocketHandler {
         if (typeEnum != null) {
           switch (typeEnum) {
           case AUDIO_END:
-            bridge.sendAudioStreamEnd();
+            bridge.endAudioInput();
             break;
 
           case TEXT:
@@ -177,7 +180,7 @@ public class VoiceSocketHandler implements IWebSocketHandler {
     return JsonUtils.toSkipNullJson(wsVoiceAgentResponseMessage);
   }
 
-  private void connectLLM(ChannelContext channelContext, RealtimeSetup setup) {
+  private void connectLLM(ChannelContext channelContext, String platform, RealtimeSetup setup) {
     String k = ChannelContextUtils.key(channelContext);
 
     RealtimeBridgeCallback callback = new WsRealtimeBridgeCallback(channelContext);
@@ -189,7 +192,16 @@ public class VoiceSocketHandler implements IWebSocketHandler {
       log.warn("start recorder failed: {}", e.getMessage());
     }
 
-    GoogleGeminiRealtimeBridge bridge = new GoogleGeminiRealtimeBridge(callback);
+    RealtimeModelBridge bridge = null;
+    if (ModelPlatformName.GOOGLE.equals(platform)) {
+      bridge = new GoogleGeminiRealtimeBridge(callback);
+
+    }
+    if (ModelPlatformName.BAILIAN.equals(platform)) {
+      bridge = new GoogleGeminiRealtimeBridge(callback);
+    } else {
+      bridge = new QwenOmniRealtimeBridge(callback);
+    }
     BRIDGES.put(k, bridge);
     // 连接 Gemini Live（异步）
     bridge.connect(setup);

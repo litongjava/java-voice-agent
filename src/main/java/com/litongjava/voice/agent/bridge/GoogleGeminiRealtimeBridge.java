@@ -40,11 +40,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class GoogleGeminiRealtimeBridge implements RealtimeModelBridge {
 
-  private static final String MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
-
   // 输入输出音频 mime
   private static final String INPUT_MIME = "audio/pcm;rate=16000";
   private static final String OUTPUT_MIME_PREFIX = "audio/pcm"; // 输出是 audio/pcm（24k）
+
+  private String model = "models/gemini-2.5-flash-native-audio-preview-12-2025";
+  private String voiceName = "Puck";
 
   private final Object transcriptLock = new Object();
   private final StringBuilder turnUserTranscript = new StringBuilder();
@@ -54,7 +55,7 @@ public class GoogleGeminiRealtimeBridge implements RealtimeModelBridge {
   private volatile AsyncSession session;
   private final RealtimeBridgeCallback callback;
 
-  public GoogleGeminiRealtimeBridge(RealtimeBridgeCallback sender) {
+  public GoogleGeminiRealtimeBridge(RealtimeBridgeCallback sender, String url, String model, String voiceName) {
     this.callback = sender;
 
     Client.Builder b = Client.builder().apiKey(GeminiClient.GEMINI_API_KEY);
@@ -64,13 +65,23 @@ public class GoogleGeminiRealtimeBridge implements RealtimeModelBridge {
     b.clientOptions(clientOptions);
 
     this.client = b.build();
+    if (model != null) {
+      this.model = model;
+    }
+    if (voiceName != null) {
+      this.voiceName = voiceName;
+    }
+  }
+
+  public GoogleGeminiRealtimeBridge(RealtimeBridgeCallback sender) {
+    this(sender, null, null, null);
   }
 
   public CompletableFuture<Void> connect(RealtimeSetup realtimeSetup) {
     LiveConnectConfig config = buildLiveConfig();
 
     // AsyncLive.connect(model, config) -> CompletableFuture<AsyncSession>
-    return client.async.live.connect(MODEL, config).thenCompose(sess -> {
+    return client.async.live.connect(model, config).thenCompose(sess -> {
       this.session = sess;
       String sessionId = sess.sessionId();
       callback.session(sessionId);
@@ -231,7 +242,7 @@ public class GoogleGeminiRealtimeBridge implements RealtimeModelBridge {
         .activityHandling(ActivityHandling.Known.START_OF_ACTIVITY_INTERRUPTS)
         .turnCoverage(TurnCoverage.Known.TURN_INCLUDES_ONLY_ACTIVITY).build();
 
-    PrebuiltVoiceConfig prebuiltVoiceConfig = PrebuiltVoiceConfig.builder().voiceName("Puck").build();
+    PrebuiltVoiceConfig prebuiltVoiceConfig = PrebuiltVoiceConfig.builder().voiceName(voiceName).build();
     VoiceConfig voiceConfig = VoiceConfig.builder().prebuiltVoiceConfig(prebuiltVoiceConfig).build();
     SpeechConfig speech = SpeechConfig.builder().voiceConfig(voiceConfig).build();
 

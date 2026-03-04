@@ -1,4 +1,4 @@
-package com.litongjava.study.voice.agent.bridge;
+package com.litongjava.voice.agent.bridge;
 
 // 由外层注入：把“后端要发回前端”的动作抽象成一个 sender
 public interface BridgeFrontendSender {

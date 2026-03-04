@@ -1,4 +1,4 @@
-package com.litongjava.study.voice.agent.model;
+package com.litongjava.voice.agent.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

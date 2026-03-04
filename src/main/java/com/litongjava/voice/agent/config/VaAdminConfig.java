@@ -1,13 +1,13 @@
-package com.litongjava.study.voice.agent.config;
+package com.litongjava.voice.agent.config;
 
 import java.util.Optional;
 
 import com.google.genai.ApiClient;
 import com.litongjava.context.BootConfiguration;
-import com.litongjava.study.voice.agent.handler.VoiceSocketHandler;
 import com.litongjava.tio.boot.server.TioBootServer;
 import com.litongjava.tio.boot.websocket.WebSocketRouter;
 import com.litongjava.tio.utils.environment.EnvUtils;
+import com.litongjava.voice.agent.handler.VoiceSocketHandler;
 
 import lombok.extern.slf4j.Slf4j;
 

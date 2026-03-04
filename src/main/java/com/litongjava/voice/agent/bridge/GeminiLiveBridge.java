@@ -1,4 +1,4 @@
-package com.litongjava.study.voice.agent.bridge;
+package com.litongjava.voice.agent.bridge;
 
 import java.time.Duration;
 import java.util.Base64;
@@ -30,8 +30,8 @@ import com.google.genai.types.ThinkingConfig;
 import com.google.genai.types.TurnCoverage;
 import com.google.genai.types.VoiceConfig;
 import com.litongjava.gemini.GeminiClient;
-import com.litongjava.study.voice.agent.model.WsVoiceAgentResponseMessage;
 import com.litongjava.tio.utils.json.JsonUtils;
+import com.litongjava.voice.agent.model.WsVoiceAgentResponseMessage;
 
 import lombok.extern.slf4j.Slf4j;
 

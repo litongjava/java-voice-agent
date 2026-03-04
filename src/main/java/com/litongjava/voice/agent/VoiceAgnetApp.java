@@ -1,12 +1,12 @@
-package com.litongjava.study.voice.agent;
+package com.litongjava.voice.agent;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 
-import com.litongjava.study.voice.agent.config.VaAdminConfig;
 import com.litongjava.tio.boot.TioApplication;
 import com.litongjava.tio.boot.server.TioBootServer;
+import com.litongjava.voice.agent.config.VaAdminConfig;
 
 public class VoiceAgnetApp {
   public static void main(String[] args) {

@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.litongjava</groupId>
-  <artifactId>voice-agent-demo</artifactId>
+  <artifactId>java-voice-agent</artifactId>
   <version>1.0.0</version>
   <properties>
     <!-- 项目属性 -->

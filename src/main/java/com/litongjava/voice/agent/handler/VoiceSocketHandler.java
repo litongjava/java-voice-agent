@@ -14,7 +14,7 @@ import com.litongjava.tio.websocket.common.WebSocketResponse;
 import com.litongjava.tio.websocket.common.WebSocketSessionContext;
 import com.litongjava.tio.websocket.server.handler.IWebSocketHandler;
 import com.litongjava.voice.agent.audio.SessionAudioRecorder;
-import com.litongjava.voice.agent.bridge.GeminiLiveBridge;
+import com.litongjava.voice.agent.bridge.GoogleGeminiRealtimeBridge;
 import com.litongjava.voice.agent.bridge.RealtimeBridgeCallback;
 import com.litongjava.voice.agent.bridge.RealtimeSetup;
 import com.litongjava.voice.agent.callback.WsRealtimeBridgeCallback;
@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class VoiceSocketHandler implements IWebSocketHandler {
   // 一个前端连接一个 bridge
-  private static final Map<String, GeminiLiveBridge> BRIDGES = new ConcurrentHashMap<>();
+  private static final Map<String, GoogleGeminiRealtimeBridge> BRIDGES = new ConcurrentHashMap<>();
 
   @Override
   public HttpResponse handshake(HttpRequest httpRequest, HttpResponse response, ChannelContext channelContext)
@@ -47,7 +47,7 @@ public class VoiceSocketHandler implements IWebSocketHandler {
   @Override
   public Object onClose(WebSocketRequest wsRequest, byte[] bytes, ChannelContext channelContext) throws Exception {
     String k = ChannelContextUtils.key(channelContext);
-    GeminiLiveBridge bridge = BRIDGES.remove(k);
+    GoogleGeminiRealtimeBridge bridge = BRIDGES.remove(k);
     if (bridge != null) {
       bridge.close();
     }
@@ -65,7 +65,7 @@ public class VoiceSocketHandler implements IWebSocketHandler {
       log.warn("appendUserPcm failed: {}", ex.getMessage());
     }
 
-    GeminiLiveBridge bridge = BRIDGES.get(ChannelContextUtils.key(channelContext));
+    GoogleGeminiRealtimeBridge bridge = BRIDGES.get(ChannelContextUtils.key(channelContext));
     if (bridge != null) {
       bridge.sendPcm16k(bytes);
     }
@@ -92,7 +92,7 @@ public class VoiceSocketHandler implements IWebSocketHandler {
       log.error("解析收到的消息异常", e);
       return null;
     }
-    GeminiLiveBridge bridge = BRIDGES.get(ChannelContextUtils.key(channelContext));
+    GoogleGeminiRealtimeBridge bridge = BRIDGES.get(ChannelContextUtils.key(channelContext));
 
     if (bridge == null && msg != null && msg.getType() != null) {
       String typeStr = msg.getType().trim().toUpperCase();
@@ -189,7 +189,7 @@ public class VoiceSocketHandler implements IWebSocketHandler {
       log.warn("start recorder failed: {}", e.getMessage());
     }
 
-    GeminiLiveBridge bridge = new GeminiLiveBridge(callback);
+    GoogleGeminiRealtimeBridge bridge = new GoogleGeminiRealtimeBridge(callback);
     BRIDGES.put(k, bridge);
     // 连接 Gemini Live（异步）
     bridge.connect(setup);

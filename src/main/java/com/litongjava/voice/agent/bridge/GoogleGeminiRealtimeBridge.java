@@ -38,7 +38,7 @@ import com.litongjava.voice.agent.model.WsVoiceAgentResponseMessage;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class GeminiLiveBridge {
+public class GoogleGeminiRealtimeBridge implements RealtimeModelBridge {
 
   private static final String MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025";
 
@@ -54,7 +54,7 @@ public class GeminiLiveBridge {
   private volatile AsyncSession session;
   private final RealtimeBridgeCallback callback;
 
-  public GeminiLiveBridge(RealtimeBridgeCallback sender) {
+  public GoogleGeminiRealtimeBridge(RealtimeBridgeCallback sender) {
     this.callback = sender;
 
     Client.Builder b = Client.builder().apiKey(GeminiClient.GEMINI_API_KEY);
@@ -397,5 +397,10 @@ public class GeminiLiveBridge {
     } catch (Exception e) {
       log.error("turnComplete callback error", e);
     }
+  }
+
+  @Override
+  public CompletableFuture<Void> endAudioInput() {
+    return this.sendAudioStreamEnd();
   }
 }

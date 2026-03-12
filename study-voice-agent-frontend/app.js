@@ -15,9 +15,12 @@ const logEl = el("log");
 const playStateEl = el("playState");
 const btnClearLog = el("btnClearLog");
 
-// 新增两个 prompt 元素
+// prompt 元素
 const systemPromptEl = el("systemPrompt");
 const userPromptEl = el("userPrompt");
+
+// sessionId 显示元素
+const sessionIdEl = el("sessionId");
 
 function logLine(s) {
     logEl.textContent += s + "\n";
@@ -26,6 +29,14 @@ function logLine(s) {
 
 function setPlayState(obj) {
     playStateEl.textContent = JSON.stringify(obj, null, 2);
+}
+
+function setSessionId(sessionId) {
+    sessionIdEl.textContent = sessionId || "-";
+}
+
+function setSessionDisconnected(disconnected) {
+    sessionIdEl.classList.toggle("disconnected", !!disconnected);
 }
 
 function defaultWsUrl() {
@@ -41,7 +52,7 @@ let ws = null;
 /** ---------- Audio (Mic) ---------- */
 let micStream = null;
 let micCtx = null;
-let micNode = null;       // AudioWorkletNode 或 ScriptProcessorNode
+let micNode = null;
 let micEnabled = false;
 
 /** ---------- Audio (Playback) ---------- */
@@ -149,6 +160,7 @@ function connectWs() {
     ws.onopen = async () => {
         logLine(`[ws] open: ${url}`);
         setUiConnected(true);
+        setSessionDisconnected(false);
         await ensurePlaybackContext();
 
         // 连接成功后，读取两个 prompt 的值并发送到后端
@@ -170,10 +182,11 @@ function connectWs() {
     ws.onclose = (e) => {
         logLine(`[ws] close: code=${e.code} reason=${e.reason || ""}`);
         setUiConnected(false);
+        setSessionDisconnected(true);
         stopMic().catch(() => {});
     };
 
-    ws.onerror = (e) => {
+    ws.onerror = () => {
         logLine("[ws] error");
     };
 
@@ -182,15 +195,30 @@ function connectWs() {
             // JSON 文本消息
             try {
                 const obj = JSON.parse(evt.data);
-                if (obj.type === "transcript_in") logLine(`[in ] ${obj.text || ""}`);
-                else if (obj.type === "transcript_out") logLine(`[out] ${obj.text || ""}`);
-                else if (obj.type === "text") logLine(`[txt] ${obj.text || ""}`);
-                else if (obj.type === "turn_complete") logLine("[turn] complete");
-                else if (obj.type === "setup_complete") logLine("[setup] complete");
-                else if (obj.type === "usage") logLine(`[usage] prompt=${obj.promptTokenCount} response=${obj.responseTokenCount} total=${obj.totalTokenCount}`);
-                else if (obj.type === "go_away") logLine(`[goAway] timeLeft=${obj.timeLeft}`);
-                else if (obj.type === "error") logLine(`[err] ${obj.where || ""}: ${obj.message || ""}`);
-                else logLine(`[evt] ${evt.data}`);
+
+                if (obj.type === "SETUP_RECEIVED") {
+                    setSessionId(obj.sessionId || "-");
+                    setSessionDisconnected(false);
+                    logLine(`[setup_received] sessionId=${obj.sessionId || ""}`);
+                } else if (obj.type === "transcript_in") {
+                    logLine(`[in ] ${obj.text || ""}`);
+                } else if (obj.type === "transcript_out") {
+                    logLine(`[out] ${obj.text || ""}`);
+                } else if (obj.type === "text") {
+                    logLine(`[txt] ${obj.text || ""}`);
+                } else if (obj.type === "turn_complete") {
+                    logLine("[turn] complete");
+                } else if (obj.type === "setup_complete") {
+                    logLine("[setup] complete");
+                } else if (obj.type === "usage") {
+                    logLine(`[usage] prompt=${obj.promptTokenCount} response=${obj.responseTokenCount} total=${obj.totalTokenCount}`);
+                } else if (obj.type === "go_away") {
+                    logLine(`[goAway] timeLeft=${obj.timeLeft}`);
+                } else if (obj.type === "error") {
+                    logLine(`[err] ${obj.where || ""}: ${obj.message || ""}`);
+                } else {
+                    logLine(`[evt] ${evt.data}`);
+                }
             } catch {
                 logLine(`[text] ${evt.data}`);
             }
@@ -200,9 +228,7 @@ function connectWs() {
         // 二进制：24k 16-bit PCM mono
         if (evt.data instanceof ArrayBuffer) {
             const bytes = new Uint8Array(evt.data);
-            // Int16 little-endian
             const i16 = new Int16Array(bytes.buffer, bytes.byteOffset, Math.floor(bytes.byteLength / 2));
-            // 浏览器端播放
             if (playCtx && playCtx.state === "suspended") await playCtx.resume();
             schedulePcmPlayback(i16);
         }
@@ -230,7 +256,7 @@ async function startMic() {
         }
     });
 
-    // 单独的采集 ctx（让 worklet 的 sampleRate 可控，但浏览器未必按你指定）
+    // 单独的采集 ctx
     micCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = micCtx.createMediaStreamSource(micStream);
 
@@ -342,5 +368,8 @@ btnSendText.onclick = () => {
 btnClearLog.onclick = () => {
     logEl.textContent = "";
 };
+
 setUiConnected(false);
 btnStopMic.disabled = true;
+setSessionId("-");
+setSessionDisconnected(true);

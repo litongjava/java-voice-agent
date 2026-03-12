@@ -16,6 +16,29 @@
         @media (min-width: 900px) { .grid { grid-template-columns: 1fr 1fr; } }
         .col { display:flex; flex-direction:column; gap:8px; }
         label.small { font-size: 13px; color:#333; }
+
+        .session-box {
+            margin-top: 10px;
+            padding: 12px;
+            background: #f7f7f7;
+            border-radius: 8px;
+            word-break: break-all;
+        }
+        .session-label {
+            font-size: 13px;
+            color: #666;
+            margin-bottom: 6px;
+        }
+        .session-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #222;
+            transition: color 0.2s ease, opacity 0.2s ease;
+        }
+        .session-value.disconnected {
+            color: #999;
+            opacity: 0.9;
+        }
     </style>
 </head>
 <body>
@@ -32,7 +55,6 @@
         默认会用当前站点推导：ws(s)://{host}/api/v1/voice/agent
     </div>
 
-    <!-- 新增：系统提示词 与 用户提示词 -->
     <div style="margin-top:12px; display:flex; gap:12px; flex-wrap:wrap;">
         <div class="col" style="flex:1; min-width:240px;">
             <label class="small">系统提示词（system prompt）</label>
@@ -42,6 +64,14 @@
             <label class="small">用户提示词（user prompt）</label>
             <textarea id="userPrompt" rows="3" placeholder="在此输入给模型的用户提示词（可选）"></textarea>
         </div>
+    </div>
+</div>
+
+<div class="card">
+    <strong>Session 信息</strong>
+    <div class="session-box">
+        <div class="session-label">当前 sessionId</div>
+        <div id="sessionId" class="session-value disconnected">-</div>
     </div>
 </div>
 

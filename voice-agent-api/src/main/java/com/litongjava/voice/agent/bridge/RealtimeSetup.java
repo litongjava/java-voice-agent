@@ -16,6 +16,7 @@ public class RealtimeSetup {
   private String user_prompt;
   private String greeting;
   private String language;
+  private String session_id;
 
   private List<SimpleChatMessage> messages;
 
